@@ -103,7 +103,6 @@ class KruskalController(app_manager.RyuApp):
 
         hw_addr = next((p.hw_addr for p in get_switch(self, dpid=datapath.id)[0].ports if p.port_no == port_no), None)
         if hw_addr is None:
-            self.logger.warning(f"No hardware address found for port {port_no} on switch {datapath.id}.")
             return
 
         config = opt
@@ -114,13 +113,11 @@ class KruskalController(app_manager.RyuApp):
     def block_links(self, excepts: list):
         for e in self.topo.edges(data=True):
             if (e[0], e[1]) in excepts or (e[1], e[0]) in excepts:
-                self.logger.info(f"{e[0]} -- {e[1]} Linked!")
                 continue
             src_dp, dst_dp = self.find_datapath_by_id(e[0]), self.find_datapath_by_id(e[1])
             if src_dp and dst_dp:
                 self.send_port_mod(src_dp, e[2]["src_port"], src_dp.ofproto.OFPPC_PORT_DOWN)
                 self.send_port_mod(dst_dp, e[2]["dst_port"], dst_dp.ofproto.OFPPC_PORT_DOWN)
-                self.logger.info(f"{e[0]} -- {e[1]} Blocked!")
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -145,7 +142,6 @@ class KruskalController(app_manager.RyuApp):
         out_port = self.mac_to_port[dpid].get(dst_mac, ofproto.OFPP_FLOOD)
 
         if out_port == ofproto.OFPP_FLOOD and not self.topo.MST_exist:
-            self.logger.info("Generating MST for unknown destination...")
             tree_edges = self.topo.Kruskal()
             self.block_links(tree_edges)
             self.topo.MST_exist = True
@@ -160,7 +156,6 @@ class KruskalController(app_manager.RyuApp):
 
     @set_ev_cls(event.EventSwitchEnter)
     def switch_enter_handler(self, event):
-        self.logger.info("SwitchEnterEvent received, starting topology discovery...")
         self.topo = Topo()
         self.topo.clear()
         all_switches, all_links = copy.copy(get_switch(self)), copy.copy(get_link(self))
